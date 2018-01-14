@@ -3,6 +3,7 @@ import datetime
 import time
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from Logger import Logger
 import re
 import configparser
 import logging
@@ -11,41 +12,42 @@ import os
 class DataAccess:
 
     def __init__(self):
+        self.logger = Logger('DataAccess')
         self.Setting()
         self.client = MongoClient(self.ipAddress, username=self.user , password=self.password, authSource=self.dbName )
-        self.db = self.client['konew']
-        self.logger.info( 'Initialized')
+        self.db = self.client[self.dbName]
+        self.logger.logger.info( 'Finish initializing DataAccess')
        
     def Setting(self):
         self.config = configparser.ConfigParser()
         with open('Config.ini') as file:
             self.config.readfp(file)
 
-        self.logPath = self.config.get('Options','Log_Path')
+        # self.logPath = self.config.get('Options','Log_Path')
         self.ipAddress = self.config.get('Mongo','ipAddress')
         self.dbName = self.config.get('Mongo','dbName')
         self.user = self.config.get('Mongo','user')
         self.password = self.config.get('Mongo','password')
         
-        formatter = logging.Formatter('[%(name)-12s %(levelname)-8s] %(asctime)s - %(message)s')
-        self.logger=logging.getLogger(__class__.__name__)
-        self.logger.setLevel(logging.DEBUG)
+        # formatter = logging.Formatter('[%(name)-12s %(levelname)-8s] %(asctime)s - %(message)s')
+        # self.logger=logging.getLogger(__class__.__name__)
+        # self.logger.setLevel(logging.DEBUG)
         
-        if not os.path.isdir(self.logPath):
-            os.mkdir(self.logPath)
+        # if not os.path.isdir(self.logPath):
+        #     os.mkdir(self.logPath)
 
-        fileHandler = logging.FileHandler(self.logPath+__class__.__name__+'_log.txt')
-        fileHandler.setLevel(logging.INFO)
-        fileHandler.setFormatter(formatter)
+        # fileHandler = logging.FileHandler(self.logPath+__class__.__name__+'_log.txt')
+        # fileHandler.setLevel(logging.INFO)
+        # fileHandler.setFormatter(formatter)
 
-        streamHandler = logging.StreamHandler()
-        streamHandler.setLevel(logging.DEBUG)
-        streamHandler.setFormatter(formatter)
+        # streamHandler = logging.StreamHandler()
+        # streamHandler.setLevel(logging.DEBUG)
+        # streamHandler.setFormatter(formatter)
 
-        self.logger.addHandler(fileHandler)
-        self.logger.addHandler(streamHandler)
+        # self.logger.addHandler(fileHandler)
+        # self.logger.addHandler(streamHandler)
 
-        self.logger.info('Finish DataAccess Setting')
+        # self.logger.logger.info('Finish DataAccess Setting')
 
     def add_request(self, request):
         request['status'] = 'created'
@@ -171,7 +173,7 @@ if __name__ == "__main__":
 
     # remove_request(db,id)
     # results=db.get_all_documents()
-    db.remove_all_documents('20180110075949138853-康業資本')
+    # db.remove_all_documents('20180110075949138853-康業資本')
     # results = db.db.get
     # db.change_reference('5a4ca418f6fadc82283bba6a',['臺中','基隆'])
     # print(db.get_modified_requests().count())
