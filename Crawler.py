@@ -54,7 +54,7 @@ class Crawler:
         # self.options.add_argument('headless')
         #self.options.add_argument(self.userData)
         self.options.add_argument('incognito')
-        self.driver = webdriver.Chrome(chrome_options=self.options)
+        self.driver = webdriver.Chrome('./chromedriver.exe',chrome_options=self.options)
         self.logger.logger.info('Finish loading Driver')
 
     def __del__(self):

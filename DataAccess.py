@@ -52,7 +52,7 @@ class DataAccess:
     def add_request(self, request):
         request['status'] = 'created'
         request['createDate'] = datetime.datetime.now()
-        request['requestId'] = str(datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f'))+'-'+request['searchKeys'][0]
+        request['requestId'] = str(datetime.datetime.now().strftime('%Y%m%d%H%M%S%f'))+'-'+request['searchKeys'][0]
         request['searchKeys'] = list(map(lambda x:{"key":x, "count":0}, request['searchKeys']))
         return self.db['Requests'].insert(request)
 
@@ -85,6 +85,7 @@ class DataAccess:
         return self.db['Requests'].find({'status': {"$in": ['removed']}})
 
     def processing_requests(self, id, searchKey, totalCount):
+        # self.db[self.db['Requests'].find_one({'_id': ObjectId(id)})['requestId']].create_index("requestId", unique=True)
         return self.db['Requests'].update_one({'_id': ObjectId(id), 'searchKeys.key':searchKey}, {'$set': {'status': 'processing', 'searchKeys.$.count':totalCount}})
 
     def finish_requests(self, id):
@@ -125,7 +126,7 @@ class DataAccess:
         else:
             aggregateList.append( { "$sort": {"skLength":-1,"date": -1,"rkLength":-1}})
 
-        print(aggregateList)
+        # print(aggregateList)
         aggregateList.append( { "$skip": skips})
 
         aggregateList.append( { "$limit": pageSize })
@@ -147,9 +148,12 @@ class DataAccess:
 
 if __name__ == "__main__":
     db = DataAccess()
+    content =db.db['20180115074120170422-郭國勝&竇劉秀珠'].find({'date':'100.04.20'})[0]['content'].replace('\n','')
+    print(re.search('郭國勝',content))
+    # print(.replace('\n',''))
 
     # request = {
-    #     "searchKeys": ["郭國勝"],
+    #     "searchKeys": ["",""],
     #     "referenceKeys": ["臺中"]
     # }
     # documents = [
