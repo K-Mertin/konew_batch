@@ -6,6 +6,7 @@ import time, os
 import configparser
 import requests
 from bs4 import BeautifulSoup
+import sys
 
 class LawBankParser:
 
@@ -14,7 +15,8 @@ class LawBankParser:
         self.driver = driver
         self.dataAccess = dataAccess
         self.logger = logger
-
+        self.headers = {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'}
+                    
     def Setting(self):
         self.config = configparser.ConfigParser()
         with open('Config.ini') as file:
@@ -40,11 +42,11 @@ class LawBankParser:
             url = currentUrl
 
             if content == '由於裁判書全文大於 1 M，請按此下載檔案。':
-                print(content)
+                # print(content)
                 downLink = soup.select('.Table-List pre')[0].find('a')['href']
-                f = requests.get('http://fyjud.lawbank.com.tw/'+downLink)
-                content = f.text    
-                print(content)
+                f = requests.get('http://fyjud.lawbank.com.tw/'+downLink, headers = self.headers)
+                content = f.content.decode('ANSI')
+                # print(content)
 
         except:
             self.logger.logger.error('error parser document')
@@ -130,6 +132,8 @@ class LawBankParser:
         
     def processIter(self, searchKeys, referenceKeys, requestId):
         processCount = 0
+
+        # raise('failed')
         for c in self.courts:
             time.sleep(0.5) 
             documents = []
@@ -139,7 +143,7 @@ class LawBankParser:
             
             for doc in docList:
                 currentUrl=doc.get_attribute('href')
-                content = requests.get(currentUrl)
+                content = requests.get(currentUrl, headers = self.headers)
                 documents.append(self.PageAnalysis(currentUrl, content, searchKeys, referenceKeys))
                 processCount += 1
                 if self.totalCount >10 and processCount%(int(self.totalCount/10))==0 :
@@ -159,7 +163,7 @@ class LawBankParser:
                 
                 for doc in docList:
                     currentUrl=doc.get_attribute('href')
-                    content = requests.get(currentUrl)
+                    content = requests.get(currentUrl,headers = self.headers)
                     documents.append(self.PageAnalysis(currentUrl, content, searchKeys, referenceKeys))
                     processCount += 1
                     if self.totalCount >10 and processCount%(int(self.totalCount/10))==0 :
@@ -215,78 +219,99 @@ class LawBankParser:
 
     def processNewRequest(self):
         # process new requests
-        requests = self.dataAccess.get_created_requests()
+        request = self.dataAccess.get_created_request()
 
-        if requests.count()>0 :
-            for request in requests:
-                try:
-                    requestId = request['requestId']
-                    self.logger.logger.info('processNewRequest:'+requestId)
-                    searchKeys = list(map(lambda x : x['key'], request['searchKeys']))
-                    referenceKeys = request['referenceKeys']
-                    _id = request['_id']
+        while request :
+            try:
+                requestId = request['requestId']
+                self.logger.logger.info('processNewRequest:'+requestId)
+                searchKeys = list(map(lambda x : x['key'], request['searchKeys']))
+                referenceKeys = request['referenceKeys']
+                _id = request['_id']
+                self.dataAccess.processing_request(_id)
 
-                    for searchKey in searchKeys:
-                        # print(searchKey)
-                        time.sleep(0.5)
-                        if self.Search(searchKey):
-                            # print('get data')
-                            self.getCourts()
-                            self.dataAccess.processing_requests(_id,searchKey,self.totalCount)
-                            self.processIter(searchKeys,referenceKeys,requestId)
-                        else:
-                            raise Exception()
+                for searchKey in searchKeys:
+                    # print(searchKey)
+                    time.sleep(0.5)
+                    if self.Search(searchKey):
+                        # print('get data')
+                        self.getCourts()
+                        self.dataAccess.processing_requests(_id,searchKey,self.totalCount)
+                        self.processIter(searchKeys,referenceKeys,requestId)
+                    else:
+                        raise Exception()
 
-                    self.dataAccess.finish_requests(_id)
-                    self.logger.logger.info('finish_requests:'+requestId)
-                except Exception as e:
-                    self.logger.logger.error(e)
-                # print(request)
+                self.dataAccess.finish_requests(_id)
+                self.logger.logger.info('finish_requests:'+requestId)
+            except Exception as e:
+                self.logger.logger.error(e)
+                self.dataAccess.failed_request(_id)
+            # print(request)
 
-    def processProcessingKey(self):
+            request = self.dataAccess.get_created_request()
+
+
+    def processFaliedKey(self):
         # process new requests
-        requests = self.dataAccess.get_processing_requests()
+        request = self.dataAccess.get_failed_request()
 
-        if requests.count()>0 :
-            
-            for request in requests:
-                try:
-                    requestId = request['requestId']
-                    self.logger.logger.info('processProcessingKey:'+requestId)
-                    searchKeys = list(map(lambda x : x['key'], request['searchKeys']))
-                    referenceKeys = request['referenceKeys']
-                    _id = request['_id']
+        while request :
+            try:
+                requestId = request['requestId']
+                self.logger.logger.info('processProcessingKey:'+requestId)
+                searchKeys = list(map(lambda x : x['key'], request['searchKeys']))
+                referenceKeys = request['referenceKeys']
+                _id = request['_id']
+                self.dataAccess.processing_request(_id)
 
-                    self.dataAccess.remove_all_documents(requestId)
+                self.dataAccess.remove_all_documents(requestId)
 
-                    for searchKey in searchKeys:
-                        # print(searchKey)
-                        if self.Search(searchKey):
-                            # print('get data')
-                            self.getCourts()
-                            self.dataAccess.processing_requests(_id,searchKey,self.totalCount)
-                            self.processIter(searchKeys,referenceKeys,requestId)
-                        else:
-                            raise Exception()
+                for searchKey in searchKeys:
+                    # print(searchKey)
+                    if self.Search(searchKey):
+                        # print('get data')
+                        self.getCourts()
+                        self.dataAccess.processing_requests(_id,searchKey,self.totalCount)
+                        self.processIter(searchKeys,referenceKeys,requestId)
+                    else:
+                        raise Exception()
 
-                    self.dataAccess.finish_requests(_id)
-                    self.logger.logger.info('finish_requests:'+requestId)
-                except Exception as e:
-                    self.logger.logger.error(e)
-                # print(request)
+                self.dataAccess.finish_requests(_id)
+                self.logger.logger.info('finish_requests:'+requestId)
+            except Exception as e:
+                self.logger.logger.error(e)
+                self.dataAccess.failed_request(_id)
+            # print(request)
+
+            request = self.dataAccess.get_failed_request()
     
     def process(self):
         self.logger.logger.info('Start Process')
-
-        while( not os.path.exists(self.dataPath+'process.stop')):
-            try:
-                # print("processing")
-                # self.processModifiedKey()
-                self.processNewRequest()
-                self.processProcessingKey()
-            except Exception as e:
-                self.logger.logger.error(e)
-            time.sleep(self.timeInterval)
+        NEW = False
+        FAIL = False
+        MOD = False
+        if str(sys.argv).find('NEW') > -1:
+            NEW = True
+        if str(sys.argv).find('FAIL') > -1:
+            FAIL = True
+        if str(sys.argv).find('MOD') > -1:
+            MOD = True
+        
+        if(NEW or FAIL or MOD):
+            while( not os.path.exists(self.dataPath+'process.stop')):
+                try:
+                    if MOD:
+                        # print('MOD')
+                        self.processModifiedKey()
+                    if NEW:
+                        # print('NEW')
+                        self.processNewRequest()
+                    if FAIL:
+                        # print('FAIL')
+                        self.processFaliedKey()
+                except Exception as e:
+                    self.logger.logger.error(e)
+                time.sleep(self.timeInterval)
 
 def main():
     logger = Logger('lawbank')

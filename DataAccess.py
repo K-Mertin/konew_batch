@@ -67,16 +67,19 @@ class DataAccess:
 
     def get_allPaged_requests(self, pageSize=10, pageNum=1):
         skips = pageSize * (pageNum - 1)
-        totalCount = self.db['Requests'].find({'status': {"$in": ['modified','created','processing','finished']}}).count()
+        totalCount = self.db['Requests'].find({'status': {"$in": ['modified','created','processing','finished','failed']}}).count()
 
         result = {
             "totalCount":totalCount,
-            "data": self.db['Requests'].find({'status': {"$in": ['modified','created','processing','finished']}}).sort("createDate", pymongo.DESCENDING).skip(skips).limit(pageSize)
+            "data": self.db['Requests'].find({'status': {"$in": ['modified','created','processing','finished','failed']}}).sort("createDate", pymongo.DESCENDING).skip(skips).limit(pageSize)
         }
         return result
 
     def get_created_requests(self):
         return self.db['Requests'].find({'status': {"$in": ['created']}})
+
+    def get_created_request(self):
+        return self.db['Requests'].find_one({'status': 'created'})
 
     def get_modified_requests(self):
         return self.db['Requests'].find({'status': {"$in": ['modified']}})
@@ -84,18 +87,30 @@ class DataAccess:
     def get_processing_requests(self):
         return self.db['Requests'].find({'status': {"$in": ['processing']}})
 
+    def get_failed_request(self):
+        return self.db['Requests'].find_one({'status': 'failed'})
+
+    def get_failed_requests(self):
+        return self.db['Requests'].find({'status': {"$in": ['failed']}})
+
     def get_removed_requests(self):
         return self.db['Requests'].find({'status': {"$in": ['removed']}})
 
     def processing_requests(self, id, searchKey, totalCount):
         # self.db[self.db['Requests'].find_one({'_id': ObjectId(id)})['requestId']].create_index("requestId", unique=True)
         return self.db['Requests'].update_one({'_id': ObjectId(id), 'searchKeys.key':searchKey}, {'$set': {'status': 'processing', 'searchKeys.$.count':totalCount}})
-
+    
+    def processing_request(self, id):
+        return self.db['Requests'].update_one({'_id': ObjectId(id)}, {'$set': {'status': 'processing'}})
+    
     def finish_requests(self, id):
         return self.db['Requests'].update_one({'_id': ObjectId(id)}, {'$set': {'status': 'finished'}})
 
     def remove_request(self, id):
         return self.db['Requests'].update_one({'_id': ObjectId(id)}, {'$set': {'status': 'removed'}})
+
+    def failed_request(self, id):
+        return self.db['Requests'].update_one({'_id': ObjectId(id)}, {'$set': {'status': 'failed'}})
 
     def insert_documents(self, collection, documents):
         return self.db[collection].insert_many(documents)
@@ -150,30 +165,37 @@ class DataAccess:
         return self.db[collection].drop() 
 
 if __name__ == "__main__":
-    # db = DataAccess()
-    # content =db.db['20180116173253695722-邱彪&蔡麗芬'].find()[1]['content'].replace('\n','')
-    
-    # key= '蔡麗芬'
-    # pattern =''
+    db = DataAccess()
+    content =db.db['Requests'].find_one({'status': 'finished'})
+    if content:
+        print(content['requestId'])
+    else:
+        print('none')
+    # title =db.db['20180116194535488260-邱彪&蔡麗芬'].find()[1]['title'].replace('\n','')
+    # # key= '蔡麗芬'
+    # # pattern =''
 
-    # for index in range(len(key)):
-    #     if index == len(key)-1:
-    #         pattern = pattern+key[index]
-    #     else:
-    #         pattern = pattern+key[index] + '\s*'
+    # # for index in range(len(key)):
+    # #     if index == len(key)-1:
+    # #         pattern = pattern+key[index]
+    # #     else:
+    # #         pattern = pattern+key[index] + '\s*'
 
-    # print(re.search(pattern,content))
-    # print(content)
-    # name = input('請輸入檔名：')
-    # file = open('a.txt', 'r',encoding='ANSI')
-    # content = file.read()
-    # print(content)
-# ?\    file.close()
+    # # print(re.search(pattern,content))
+    # # print(content)
+    # # name = input('請輸入檔名：')
 
-    str1 = '�W�O�_�a��k�|�D�ƧP�M'
+    # file = open('a.txt', 'r', encoding='ANSI')
+    # test = file.read()
+    # print(test)
+    # # file.write(content.encode())
+    # # content = file.read()
+    # # print(content)
+    # # file.close()
+    # print(title)
 
-    print(str1.encode('ANSI'))
-    # print(.replace('\n',''))
+    # print(content[0:22])
+    # # print(.replace('\n',''))
 
     # request = {
     #     "searchKeys": ["",""],
