@@ -4,6 +4,8 @@ from Logger import Logger
 import re, math
 import time, os
 import configparser
+import requests
+from bs4 import BeautifulSoup
 
 class LawBankParser:
 
@@ -22,15 +24,28 @@ class LawBankParser:
         self.stopFile = self.config.get('Options','Stop_File')
         self.dataPath = self.config.get('Options','Data_Path')
     
-    def PageAnalysis(self, searchKeys, referenceKeys):
+    def PageAnalysis(self,currentUrl ,content, searchKeys, referenceKeys):
         # self.logger.logger.info('start PageAnalysis')
         try:
             document = {}
-            title = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(1)> td:nth-child(2)').text
-            date = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(2)> td:nth-child(2)').text
-            reason = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(3)> td:nth-child(2)').text
-            content = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(5)> td:nth-child(1)').text.replace('\n','')
-            url = self.driver.current_url
+            soup = BeautifulSoup(content.text, "html.parser")
+            title = soup.select('.Table-List tr > td:nth-of-type(2)')[0].text
+            date = soup.select('.Table-List tr > td:nth-of-type(2)')[1].text
+            reason = soup.select('.Table-List tr > td:nth-of-type(2)')[2].text
+            content = soup.select('.Table-List pre')[0].text
+            # title = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(1)> td:nth-child(2)').text
+            # date = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(2)> td:nth-child(2)').text
+            # reason = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(3)> td:nth-child(2)').text
+            # content = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(5)> td:nth-child(1)').text.replace('\n','')
+            url = currentUrl
+
+            if content == '由於裁判書全文大於 1 M，請按此下載檔案。':
+                print(content)
+                downLink = soup.select('.Table-List pre')[0].find('a')['href']
+                f = requests.get('http://fyjud.lawbank.com.tw/'+downLink)
+                content = f.text    
+                print(content)
+
         except:
             self.logger.logger.error('error parser document')
 
@@ -48,15 +63,23 @@ class LawBankParser:
 
     def ContentAnalysis(self, content, keys):
         tags = []
-
+        # if len(keys) > 0:
         for key in keys:
+            # print(key)
             singleKeys=key.replace('+',' ').replace('&',' ').replace('(',' ').replace(')',' ').replace('-',' ').split(' ')
             # print(singleKeys)
             for singleKey in singleKeys:
                 if len(singleKey) >0:
-                    if re.search(singleKey,content):
+                    pattern = ''
+                    for index in range(len(singleKey)):
+                        if index == len(singleKey)-1:
+                            pattern = pattern+singleKey[index]
+                        else:
+                            pattern = pattern+singleKey[index] + '\s*'
+
+                    if re.search(pattern,content):
                         tags.append(singleKey)
-        
+            
         return tags
 
     def Search(self, searchKey):
@@ -71,6 +94,7 @@ class LawBankParser:
             keyword = self.driver.find_element_by_id('kw')
             keyword.clear()
             # time.sleep(10)
+            print(searchKey)
             keyword.send_keys(searchKey)
 
             form = self.driver.find_element_by_id('form1')
@@ -103,8 +127,6 @@ class LawBankParser:
             self.logger.logger.info('totalNo:'+str(self.totalCount))      
         except  Exception as e: 
             self.logger.logger.error(e)
-
-
         
     def processIter(self, searchKeys, referenceKeys, requestId):
         processCount = 0
@@ -112,24 +134,51 @@ class LawBankParser:
             time.sleep(0.5) 
             documents = []
             self.driver.get(c)
-            self.driver.find_elements_by_css_selector('#table3 a')[0].click()
-            documents.append(self.PageAnalysis(searchKeys, referenceKeys))
-            nextPage = self.driver.find_element_by_css_selector('tbody > tr:nth-child(1) > td:nth-child(2) > a:nth-child(3)')
-            processCount += 1
-
-            if self.totalCount >10 and processCount%(int(self.totalCount/10))==0 :
+        
+            docList=self.driver.find_elements_by_css_selector('#table3 a')
+            
+            for doc in docList:
+                currentUrl=doc.get_attribute('href')
+                content = requests.get(currentUrl)
+                documents.append(self.PageAnalysis(currentUrl, content, searchKeys, referenceKeys))
+                processCount += 1
+                if self.totalCount >10 and processCount%(int(self.totalCount/10))==0 :
                     self.logger.logger.info(str(processCount)+'_'+str(processCount*100/self.totalCount)+'%')
+                time.sleep(0.5)
+                
 
+            nextPage = self.driver.find_element_by_css_selector('#form1 > div:nth-child(3) > table:nth-child(2) > tbody > tr > td:nth-child(2) > a:nth-child(3)')
+            # print(nextPage.text)
 
             while nextPage.is_displayed():
-                time.sleep(0.1)
+                time.sleep(0.5)
                 nextPage.click()
-                documents.append(self.PageAnalysis(searchKeys, referenceKeys))
-                nextPage = self.driver.find_element_by_css_selector('tbody > tr:nth-child(1) > td:nth-child(2) > a:nth-child(3)')
-                processCount += 1
+                nextPage = self.driver.find_element_by_css_selector('#form1 > div:nth-child(3) > table:nth-child(2) > tbody > tr > td:nth-child(2) > a:nth-child(3)')
                 
-                if self.totalCount >10 and processCount%int(self.totalCount/10)==0:
-                    self.logger.logger.info(str(processCount)+'_'+str(processCount*100/self.totalCount)+'%')
+                docList= self.driver.find_elements_by_css_selector('#table3 a')
+                
+                for doc in docList:
+                    currentUrl=doc.get_attribute('href')
+                    content = requests.get(currentUrl)
+                    documents.append(self.PageAnalysis(currentUrl, content, searchKeys, referenceKeys))
+                    processCount += 1
+                    if self.totalCount >10 and processCount%(int(self.totalCount/10))==0 :
+                        self.logger.logger.info(str(processCount)+'_'+str(processCount*100/self.totalCount)+'%')
+                    time.sleep(0.5)
+            # self.driver.find_elements_by_css_selector('#table3 a')[0].click()
+            # documents.append(self.PageAnalysis(searchKeys, referenceKeys))
+            # nextPage = self.driver.find_element_by_css_selector('tbody > tr:nth-child(1) > td:nth-child(2) > a:nth-child(3)')
+            
+
+            # while nextPage.is_displayed():
+            #     time.sleep(0.1)
+            #     nextPage.click()
+            #     documents.append(self.PageAnalysis(searchKeys, referenceKeys))
+            #     nextPage = self.driver.find_element_by_css_selector('tbody > tr:nth-child(1) > td:nth-child(2) > a:nth-child(3)')
+            #     processCount += 1
+                
+            #     if self.totalCount >10 and processCount%int(self.totalCount/10)==0:
+            #         self.logger.logger.info(str(processCount)+'_'+str(processCount*100/self.totalCount)+'%')
 
             self.dataAccess.insert_documents(str(requestId),documents)
 
@@ -144,16 +193,20 @@ class LawBankParser:
                     requestId = request['requestId']
                     self.logger.logger.info('processModifiedKey:'+requestId)
                     referenceKeys = request['referenceKeys']
+                    searchKeys =  list(map(lambda x : x['key'], request['searchKeys']))
                     _id = request['_id']
 
                     pageSize = 10
                     totalCount = self.dataAccess.get_documents_count(str(requestId))
                     totalPages = math.ceil(totalCount/pageSize)
-
+                    # print(str(totalPages))
                     for i in range(1,totalPages+1):
+                        # print(i)
                         documents = self.dataAccess.get_allPaged_documents(str(requestId),pageSize,i)
+
                         for doc in documents:
                             self.dataAccess.update_document_reference(str(requestId),doc['_id'],self.ContentAnalysis(doc['content'], referenceKeys))
+                            # self.dataAccess.update_document_searchKeys(str(requestId),doc['_id'],self.ContentAnalysis(doc['content'], searchKeys))
                             
                     self.dataAccess.finish_requests(_id)
                     self.logger.logger.info('finish_requests:'+requestId)
@@ -228,7 +281,7 @@ class LawBankParser:
         while( not os.path.exists(self.dataPath+'process.stop')):
             try:
                 # print("processing")
-                self.processModifiedKey()
+                # self.processModifiedKey()
                 self.processNewRequest()
                 self.processProcessingKey()
             except Exception as e:

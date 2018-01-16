@@ -62,6 +62,9 @@ class DataAccess:
     def update_document_reference(self, collection, id, referenceKeys ):
         return self.db[collection].update_one({'_id': ObjectId(id)}, {'$set': {'referenceKeys': referenceKeys}})
 
+    def update_document_searchKeys(self, collection, id, searchKeys ):
+        return self.db[collection].update_one({'_id': ObjectId(id)}, {'$set': {'searchKeys': searchKeys}})
+
     def get_allPaged_requests(self, pageSize=10, pageNum=1):
         skips = pageSize * (pageNum - 1)
         totalCount = self.db['Requests'].find({'status': {"$in": ['modified','created','processing','finished']}}).count()
@@ -99,7 +102,7 @@ class DataAccess:
 
     def get_allPaged_documents(self, collection='1514966746.2558856', pageSize=10, pageNum=1, sortBy="keys", filters=[]):
         skips = pageSize * (pageNum - 1)
-        print(filters)
+        # print(filters)
         filters = list(map(lambda x : [{"$or":[{'searchKeys':x},{'referenceKeys':x},{'tags':x}]}],filters ))
         filters = sum(filters,[])
 
@@ -147,9 +150,29 @@ class DataAccess:
         return self.db[collection].drop() 
 
 if __name__ == "__main__":
-    db = DataAccess()
-    content =db.db['20180115074120170422-郭國勝&竇劉秀珠'].find({'date':'100.04.20'})[0]['content'].replace('\n','')
-    print(re.search('郭國勝',content))
+    # db = DataAccess()
+    # content =db.db['20180116173253695722-邱彪&蔡麗芬'].find()[1]['content'].replace('\n','')
+    
+    # key= '蔡麗芬'
+    # pattern =''
+
+    # for index in range(len(key)):
+    #     if index == len(key)-1:
+    #         pattern = pattern+key[index]
+    #     else:
+    #         pattern = pattern+key[index] + '\s*'
+
+    # print(re.search(pattern,content))
+    # print(content)
+    # name = input('請輸入檔名：')
+    # file = open('a.txt', 'r',encoding='ANSI')
+    # content = file.read()
+    # print(content)
+# ?\    file.close()
+
+    str1 = '�W�O�_�a��k�|�D�ƧP�M'
+
+    print(str1.encode('ANSI'))
     # print(.replace('\n',''))
 
     # request = {
