@@ -18,43 +18,37 @@ class Crawler:
          
     def Setting(self):
         self.config = configparser.ConfigParser()
-        # print(os.getcwd())
-        with open('Config.ini') as file:
-            self.config.readfp(file)
+        try:
+            with open('Config.ini') as file:
+                self.config.readfp(file)
+            
+            self.source = self.config.get('Options','Selenium_Source')
 
-        self.browserLocation = self.config.get('Options','Chrome_Location')
-        self.userData = self.config.get('Options','Chrome_UserData')
-        # self.logPath = self.config.get('Options','Log_Path')
-        
-        # formatter = logging.Formatter('[%(name)-12s %(levelname)-8s] %(asctime)s - %(message)s')
-        # self.logger=logging.getLogger(__class__.__name__)
-        # self.logger.setLevel(logging.DEBUG)
-        
-        # if not os.path.isdir(self.logPath):
-        #     os.mkdir(self.logPath)
-
-        # fileHandler = logging.FileHandler(self.logPath+'log.txt')
-        # fileHandler.setLevel(logging.INFO)
-        # fileHandler.setFormatter(formatter)
-
-        # streamHandler = logging.StreamHandler()
-        # streamHandler.setLevel(logging.DEBUG)
-        # streamHandler.setFormatter(formatter)
-
-        # self.logger.addHandler(fileHandler)
-        # self.logger.addHandler(streamHandler)
-
-        # self.logger.info('Finish Setting')
+            if self.source == 'LOCAL':
+                self.browserLocation = self.config.get('Options','Chrome_Location')
+                self.userData = self.config.get('Options','Chrome_UserData')
+            else:
+                self.seleniumService = self.config.get('Options','Selenium_Service')
+        except Exception as e:
+            self.logger.logger.error(e)
+            raise(e)
 
     def LoadDriver(self):
         self.logger.logger.info('Driver Loading')
         self.options = webdriver.ChromeOptions()
-        self.options.binary_location = self.browserLocation
-        #self.options.add_argument(self.userData)
         # self.options.add_argument('headless')
-        #self.options.add_argument(self.userData)
         self.options.add_argument('incognito')
-        self.driver = webdriver.Chrome('./chromedriver.exe',chrome_options=self.options)
+        try:
+            if self.source == 'LOCAL':
+                #self.options.add_argument(self.userData)
+                self.options.binary_location = self.browserLocation
+                self.driver = webdriver.Chrome('./chromedriver.exe',chrome_options=self.options)
+            else:
+                self.driver = webdriver.Remote(command_executor='http://127.0.0.1:4444/wd/hub',desired_capabilities=self.options.to_capabilities())
+        except Exception as e:
+            self.logger.logger.error(e)
+            raise(e)
+
         self.logger.logger.info('Finish loading Driver')
 
     def __del__(self):

@@ -13,9 +13,13 @@ class DataAccess:
 
     def __init__(self):
         self.logger = Logger('DataAccess')
-        self.Setting()
-        self.client = MongoClient(self.ipAddress, username=self.user , password=self.password, authSource=self.dbName )
-        self.db = self.client[self.dbName]
+        try:
+            self.Setting()
+            self.client = MongoClient(self.ipAddress, username=self.user , password=self.password, authSource=self.dbName )
+            self.db = self.client[self.dbName]
+        except Exception as e:
+            self.logger.logger.error(e)
+            raise(e)
         self.logger.logger.info( 'Finish initializing DataAccess')
        
     def Setting(self):
