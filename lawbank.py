@@ -95,6 +95,18 @@ class LawBankParser:
             #         element.click()
             keyword = self.driver.find_element_by_id('kw')
             keyword.clear()
+
+            year1 = self.driver.find_element_by_id('dy1')
+            year1.clear()
+
+            year2 = self.driver.find_element_by_id('dy2')
+            year2.clear()
+
+            mon1 = self.driver.find_element_by_id('dm1')
+            mon1.clear()
+
+            mon2 = self.driver.find_element_by_id('dm2')
+            mon2.clear()
             # time.sleep(10)
             print(searchKey)
             keyword.send_keys(searchKey)
@@ -107,15 +119,104 @@ class LawBankParser:
             self.logger.logger.error(e)
             return False
     
-    def getCourts(self):
+    def SearchYear(self, searchKey, courtCode, startYear = 85,  endYear = 107):  
+
+        adder = int((endYear-startYear)/2)
+
+        while(startYear<=endYear):
+            self.driver.get('http://fyjud.lawbank.com.tw/index.aspx')
+            elements = self.driver.find_elements_by_css_selector('input[type=checkbox]')
+
+            for element in elements:
+                if element.get_attribute('value').lower()== str(courtCode).lower():
+                    if not element.is_selected():
+                            element.click()
+                else:
+                    if element.is_selected():
+                            element.click()
+            year1 = self.driver.find_element_by_id('dy1')
+            year1.clear()
+            year1.send_keys(startYear)
+
+            year2 = self.driver.find_element_by_id('dy2')
+            year2.clear()
+            year2.send_keys(startYear+adder)
+
+            mon1 = self.driver.find_element_by_id('dm1')
+            mon1.clear()
+
+            mon2 = self.driver.find_element_by_id('dm2')
+            mon2.clear()
+
+            keyword = self.driver.find_element_by_id('kw')
+            keyword.clear()
+
+            searchKey=searchKey
+            keyword.send_keys(searchKey)
+
+            form = self.driver.find_element_by_id('form1')
+            form.submit()
+
+            self.getCourts(searchKey, startYear,startYear+adder)
+            startYear= startYear+adder +1
+            time.sleep(0.5)
+
+    def SearchMonth(self, searchKey, courtCode, year, startMonth = 1,endMonth = 12):
+        
+        adder = int((endMonth-startMonth)/2)
+
+        while(startMonth<=endMonth):
+            self.driver.get('http://fyjud.lawbank.com.tw/index.aspx')
+            elements = self.driver.find_elements_by_css_selector('input[type=checkbox]')
+
+            for element in elements:
+                if element.get_attribute('value').lower()== str(courtCode).lower():
+                    if not element.is_selected():
+                            element.click()
+                else:
+                    if element.is_selected():
+                            element.click()
+            year1 = self.driver.find_element_by_id('dy1')
+            year1.clear()
+            year1.send_keys(year)
+
+            year2 = self.driver.find_element_by_id('dy2')
+            year2.clear()
+            year2.send_keys(year)
+
+            mon1 = self.driver.find_element_by_id('dm1')
+            mon1.clear()
+            mon1.send_keys(startMonth)
+
+            mon2 = self.driver.find_element_by_id('dm2')
+            mon2.clear()
+            mon2.send_keys(startMonth+adder)
+
+            keyword = self.driver.find_element_by_id('kw')
+            keyword.clear()
+
+            searchKey=searchKey
+            keyword.send_keys(searchKey)
+
+            form = self.driver.find_element_by_id('form1')
+            form.submit()
+
+            self.getCourts(searchKey, year, year, startMonth,startMonth+adder)
+            startMonth = startMonth + adder +1
+            time.sleep(0.5)
+
+
+    def getCourts(self, searchKey, startYear=0, endYear=999, startMonth=0, endMonth=99):
         try:
             self.driver.switch_to_default_content()
             self.driver.switch_to_frame('menuFrame')
             courtGroups = self.driver.find_elements_by_class_name('court_group')
+            yearList = []
+            monthList = []
             
-            
-            self.courts = []
-            self.totalCount = 0
+            if startYear == 0 :
+                self.courts = []
+                self.totalCount = 0    
         
             for courtGroup in courtGroups:
                 lists = courtGroup.find_elements_by_css_selector('li')
@@ -124,11 +225,39 @@ class LawBankParser:
                 for li in lists:
                     if not li.text.endswith(' 0'):
                         # print( int(li.text.split(' ')[1]))
-                        self.totalCount +=  int(li.text.split(' ')[1])#   int(re.search( r'\(.*\)', li.text).group().replace('(','').replace(')',''))
-                        self.courts.append(li.find_element_by_css_selector('a').get_attribute('href'))      
-            self.logger.logger.info('totalNo:'+str(self.totalCount))      
+                        if startYear == 0 :
+                            self.totalCount +=  int(li.text.split(' ')[1])#   int(re.search( r'\(.*\)', li.text).group().replace('(','').replace(')',''))
+                        if int(li.text.split(' ')[1]) > 999:
+                            if endYear - startYear >=1:
+                                yearList.append(li.get_attribute('id'))
+                            elif endMonth - startMonth >= 1:
+                                monthList.append( li.get_attribute('id'))
+                            else:
+                                self.logger.logger.info(searchKey+li.get_attribute('id')+str(startYear)+str(startMonth))
+                        else:
+                            self.courts.append(li.find_element_by_css_selector('a').get_attribute('href'))    
+
+            if len(yearList)>0:
+                for courtCode in yearList:
+                    print(courtCode)
+                    if startYear ==0:
+                        self.SearchYear(searchKey,courtCode)
+                    else:
+                        self.SearchYear(searchKey,courtCode,startYear,endYear)
+            
+            if len(monthList)>0:
+                for courtCode in monthList:
+                    if startMonth ==0:
+                        self.SearchMonth(searchKey,courtCode,startYear)
+                    else:
+                        self.SearchMonth(searchKey,courtCode,startYear, startMonth, endMonth)
+            
+            if startYear == 0 :
+                self.logger.logger.info('totalNo:'+str(self.totalCount))      
+
         except  Exception as e: 
             self.logger.logger.error(e)
+            raise e
         
     def processIter(self, searchKeys, referenceKeys, requestId):
         processCount = 0
@@ -235,7 +364,7 @@ class LawBankParser:
                     time.sleep(0.5)
                     if self.Search(searchKey):
                         # print('get data')
-                        self.getCourts()
+                        self.getCourts(searchKey)
                         self.dataAccess.processing_requests(_id,searchKey,self.totalCount)
                         self.processIter(searchKeys,referenceKeys,requestId)
                     else:
@@ -270,7 +399,7 @@ class LawBankParser:
                     # print(searchKey)
                     if self.Search(searchKey):
                         # print('get data')
-                        self.getCourts()
+                        self.getCourts(searchKey)
                         self.dataAccess.processing_requests(_id,searchKey,self.totalCount)
                         self.processIter(searchKeys,referenceKeys,requestId)
                     else:
