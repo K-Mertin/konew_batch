@@ -90,9 +90,12 @@ class LawBankParser:
             self.driver.get('http://fyjud.lawbank.com.tw/index.aspx')
 
             elements = self.driver.find_elements_by_css_selector('input[type=checkbox]')
-            # for element in elements:
-            #     if not element.is_selected():
-            #         element.click()
+            
+            for element in elements:
+                if element.is_selected():
+                    element.click()
+
+
             keyword = self.driver.find_element_by_id('kw')
             keyword.clear()
 
