@@ -149,8 +149,6 @@ class LawBankParser:
             for element in elements:
                 if element.is_selected():
                     element.click()
-                if element.get_attribute("value") =='TCHM':
-                    element.click()
 
 
             keyword = self.driver.find_element_by_id('kw')
