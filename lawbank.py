@@ -26,10 +26,34 @@ class LawBankParser:
         self.stopFile = self.config.get('Options','Stop_File')
         self.dataPath = self.config.get('Options','Data_Path')
     
+    def decode(self, s):
+        try:
+            word = s.decode('cp950')
+        except Exception as e:
+            if str(e).endswith('incomplete multibyte sequence'):
+                word= s[0:1].decode('cp950')
+                return 1, word
+            else:
+                word = ''
+                return 2, word
+        return 2, word
+
+    def lineProcess(self, sentance):
+        i=0
+        con = ''
+        while i < len(sentance):
+            ret,word = self.decode(sentance[i:i+2]) 
+            con = con+word
+            if ret == 1 :
+                i+= 1
+            if ret == 2 :
+                i+= 2
+        return con
+    
     def PageAnalysis(self,currentUrl ,content, searchKeys, referenceKeys):
         # self.logger.logger.info('start PageAnalysis')
+        document = {}
         try:
-            document = {}
             soup = BeautifulSoup(content.text, "html.parser")
             title = soup.select('.Table-List tr > td:nth-of-type(2)')[0].text
             date = soup.select('.Table-List tr > td:nth-of-type(2)')[1].text
@@ -41,25 +65,56 @@ class LawBankParser:
             # content = self.driver.find_element_by_css_selector('.Table-List tr:nth-child(5)> td:nth-child(1)').text.replace('\n','')
             url = currentUrl
 
-            if content == '由於裁判書全文大於 1 M，請按此下載檔案。':
-                # print(content)
+            document['title'] = title
+            document['date'] = date if len(date) == 9 else '0'+date
+            document['tags'] = [reason]
+            document['tags'].append(title.split(' ')[0])
+            document['tags'].append(re.sub('\[.*\]', '', title, count=0, flags=0)[-5:-1])
+            document['searchKeys'] = self.ContentAnalysis(content, searchKeys)
+            document['referenceKeys'] = self.ContentAnalysis(content, referenceKeys)
+            document['source'] = url
+            document['content'] = content
+        except Exception as e:
+            self.logger.logger.error('error parser Html:'+ str(e))
+            return document
+
+
+        if content == '由於裁判書全文大於 1 M，請按此下載檔案。':
+            print(content)
+            content = ''
+            try:
                 downLink = soup.select('.Table-List pre')[0].find('a')['href']
                 f = requests.get('http://fyjud.lawbank.com.tw/'+downLink, headers = self.headers)
-                content = f.content.decode('ANSI')
-                # print(content)
+                print('writefile')
+                tempFile = open(title,'wb')
+                tempFile.write(f.content)
+                tempFile.close()
+                print('readfile')
 
-        except:
-            self.logger.logger.error('error parser document')
-
-        document['title'] = title
-        document['date'] = date if len(date) == 9 else '0'+date
-        document['tags'] = [reason]
-        document['tags'].append(title.split(' ')[0])
-        document['tags'].append(re.sub('\[.*\]', '', title, count=0, flags=0)[-5:-1])
-        document['searchKeys'] = self.ContentAnalysis(content, searchKeys)
-        document['referenceKeys'] = self.ContentAnalysis(content, referenceKeys)
-        document['source'] = url
-        document['content'] = content
+                with open(title,'rb') as tem:
+                    lineList = tem.read().splitlines()
+                
+                for line in lineList:
+                    try:
+                        content=content+line.decode('cp950')
+                        # print(content)
+                    except:
+                        content=content+self.lineProcess(line)
+    
+                print('remove')
+                os.remove(title)
+                # while(fileContent):
+                #     line = fileContent.readline()
+                #     try:
+                #         content=content+line.decode('cp950')
+                #     except:
+                #         content=content+lineProcess(line)
+                document['content'] = content
+                document['searchKeys'] = self.ContentAnalysis(content, searchKeys)
+                document['referenceKeys'] = self.ContentAnalysis(content, referenceKeys)
+            except Exception as e:
+                self.logger.logger.error('error processing download file:'+ str(e))
+                return document
 
         return document
 
@@ -93,6 +148,8 @@ class LawBankParser:
             
             for element in elements:
                 if element.is_selected():
+                    element.click()
+                if element.get_attribute("value") =='TCHM':
                     element.click()
 
 
