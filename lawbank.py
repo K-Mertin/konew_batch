@@ -1,5 +1,5 @@
 from Crawler import Crawler
-from DataAccess import DataAccess
+from dataAccess.requestAccess import requestAccess
 from Logger import Logger
 import re, math
 import time, os
@@ -263,7 +263,6 @@ class LawBankParser:
             startMonth = startMonth + adder +1
             time.sleep(0.5)
 
-
     def getCourts(self, searchKey, startYear=0, endYear=999, startMonth=0, endMonth=99):
         try:
             self.driver.switch_to_default_content()
@@ -373,7 +372,6 @@ class LawBankParser:
 
             self.dataAccess.insert_documents(str(requestId),documents)
 
-
     def processModifiedKey(self):
         #process modified referenceKey
         requests = self.dataAccess.get_modified_requests()
@@ -436,7 +434,6 @@ class LawBankParser:
             # print(request)
 
             request = self.dataAccess.get_created_request()
-
 
     def processFaliedKey(self):
         # process new requests
@@ -505,7 +502,7 @@ def main():
     logger.logger.info('start process')
 
     try:
-        dataAccess = DataAccess()
+        dataAccess = requestAccess()
         crawler = Crawler()
         parser = LawBankParser(crawler.driver, dataAccess, logger)
     except Exception as e:
